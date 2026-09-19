@@ -1,0 +1,27 @@
+{
+  "random_seed": 42,
+  "baseline_w04": {
+    "base_rate": 0.286,
+    "precision_at_20": 0.35,
+    "precision_at_50": 0.3,
+    "precision_at_100": 0.29
+  },
+  "model_w05": {
+    "test_base_rate": 0.37,
+    "precision_at_20": 0.65,
+    "precision_at_50": 0.58,
+    "precision_at_100": 0.6,
+    "top_features": [
+      "content_age_days",
+      "char_count",
+      "ctr_early",
+      "pos_early",
+      "word_count"
+    ]
+  },
+  "baseline_same_split": {
+    "precision_at_20": 0.25,
+    "precision_at_50": 0.32,
+    "precision_at_100": 0.36
+  }
+}

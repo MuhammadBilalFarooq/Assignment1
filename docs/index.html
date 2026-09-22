@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can Early Search Signals Predict Which Pages Are About to Decline? — A FlyRank Data Study</title>
+<meta name="description" content="A study on 92,548 content pages from FlyRank's search warehouse: can early-month signals and content attributes flag declining pages before a simple rule can?">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBFBF8;
+    --ink:#14181F;
+    --ink-soft:#4A5160;
+    --ink-faint:#7A8190;
+    --line:#DEE2E5;
+    --accent:#1D6F8C;
+    --accent-soft:#E4EFF2;
+    --flag:#8A4A2A;
+    --flag-soft:#F3E9E1;
+    --panel:#F1F2EE;
+    --serif:'Source Serif 4', Georgia, serif;
+    --sans:'IBM Plex Sans', -apple-system, Segoe UI, sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#12151A; --ink:#EDEEF0; --ink-soft:#B7BCC5; --ink-faint:#7E8492;
+      --line:#2A2F37; --accent:#5FA9C4; --accent-soft:#1B2A30;
+      --flag:#D69271; --flag-soft:#2B211C; --panel:#191D23;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#12151A; --ink:#EDEEF0; --ink-soft:#B7BCC5; --ink-faint:#7E8492;
+    --line:#2A2F37; --accent:#5FA9C4; --accent-soft:#1B2A30;
+    --flag:#D69271; --flag-soft:#2B211C; --panel:#191D23;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:76px;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); line-height:1.6; font-size:17px;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  a{color:var(--accent);}
+  .wrap{max-width:720px; margin:0 auto; padding:0 24px;}
+  .wide{max-width:880px; margin:0 auto; padding:0 24px;}
+
+  /* ---- Top nav ---- */
+  nav.top{
+    position:sticky; top:0; z-index:20; background:var(--bg);
+    border-bottom:1px solid var(--line);
+    padding-top:env(safe-area-inset-top,0px);
+  }
+  nav.top .inner{
+    max-width:880px; margin:0 auto; padding:14px 24px;
+    display:flex; gap:18px; overflow-x:auto; scrollbar-width:none;
+    font-family:var(--mono); font-size:12.5px; color:var(--ink-faint);
+  }
+  nav.top .inner::-webkit-scrollbar{display:none;}
+  nav.top a{color:var(--ink-faint); text-decoration:none; white-space:nowrap;}
+  nav.top a:hover{color:var(--accent);}
+
+  /* ---- Header / Abstract ---- */
+  header.hero{padding:64px 0 40px; border-bottom:1px solid var(--line);}
+  .kicker{font-family:var(--mono); font-size:13px; color:var(--accent); margin-bottom:14px;}
+  h1{
+    font-family:var(--serif); font-weight:600; font-size:2.35rem; line-height:1.18;
+    margin:0 0 22px; letter-spacing:-0.01em;
+  }
+  .byline{color:var(--ink-faint); font-size:14.5px; margin-bottom:30px;}
+  .byline a{color:var(--ink-faint); text-decoration:underline;}
+  .abstract{
+    background:var(--panel); border:1px solid var(--line); border-radius:3px;
+    padding:24px 26px;
+  }
+  .abstract-label{font-family:var(--mono); font-size:12px; color:var(--ink-faint); margin-bottom:10px;}
+  .abstract p{margin:0; color:var(--ink-soft); font-size:16px;}
+
+  /* ---- Sections ---- */
+  section{padding:52px 0;}
+  section + section{border-top:1px solid var(--line);}
+  .num{font-family:var(--mono); font-size:13px; color:var(--accent); display:block; margin-bottom:8px;}
+  h2{font-family:var(--serif); font-weight:600; font-size:1.6rem; margin:0 0 20px; letter-spacing:-0.005em;}
+  h3{font-family:var(--serif); font-weight:600; font-size:1.18rem; margin:28px 0 12px;}
+  p{margin:0 0 16px; color:var(--ink-soft);}
+  ul,ol{margin:0 0 16px; padding-left:22px; color:var(--ink-soft);}
+  li{margin-bottom:8px;}
+  strong{color:var(--ink); font-weight:600;}
+  code{font-family:var(--mono); font-size:0.88em; background:var(--panel); padding:1px 5px; border-radius:3px;}
+
+  .callout{
+    border-left:3px solid var(--flag); background:var(--flag-soft);
+    padding:14px 18px; border-radius:0 3px 3px 0; margin:20px 0;
+  }
+  .callout p{margin:0; color:var(--ink-soft); font-size:15.5px;}
+  .callout .label{font-family:var(--mono); font-size:11.5px; color:var(--flag); display:block; margin-bottom:6px;}
+
+  /* ---- Figures ---- */
+  figure{margin:28px 0; max-width:100%;}
+  figure img{width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:3px;}
+  figcaption{
+    font-size:14px; color:var(--ink-faint); margin-top:10px; line-height:1.5;
+  }
+  figcaption .take{color:var(--ink); font-weight:500;}
+
+  /* ---- Tables ---- */
+  .tbl-wrap{overflow-x:auto; margin:20px 0;}
+  table{border-collapse:collapse; width:100%; min-width:420px; font-size:15px;}
+  th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line);}
+  th{font-family:var(--mono); font-size:12px; font-weight:500; color:var(--ink-faint); text-transform:none;}
+  td.num, th.num{font-family:var(--mono); text-align:right;}
+  tr.hl td{font-weight:600; color:var(--accent);}
+
+  /* ---- Recommendation tiers ---- */
+  .tiers{display:grid; grid-template-columns:1fr; gap:12px; margin:22px 0;}
+  @media(min-width:640px){.tiers{grid-template-columns:1fr 1fr 1fr;}}
+  .tier{border:1px solid var(--line); border-radius:3px; padding:16px 18px;}
+  .tier .n{font-family:var(--mono); font-size:1.6rem; color:var(--accent); display:block;}
+  .tier .name{font-weight:600; margin:4px 0 6px; font-size:15px;}
+  .tier .desc{font-size:13.5px; color:var(--ink-faint); margin:0;}
+
+  /* ---- Footer / acknowledgments ---- */
+  footer{padding:48px 0 80px; border-top:1px solid var(--line);}
+  .credit{
+    font-size:15px; color:var(--ink-soft); padding:20px 22px;
+    background:var(--panel); border-radius:3px; border:1px solid var(--line);
+  }
+  .credit a{font-weight:600;}
+  .repro-list{list-style:none; padding:0; margin:0 0 16px;}
+  .repro-list li{
+    font-family:var(--mono); font-size:14px; margin-bottom:10px; padding-left:0;
+    border-bottom:1px dashed var(--line); padding-bottom:10px;
+  }
+  .repro-list a{text-decoration:none;}
+  .repro-list a:hover{text-decoration:underline;}
+
+  @media(max-width:640px){
+    h1{font-size:1.85rem;}
+    header.hero{padding:44px 0 32px;}
+    section{padding:40px 0;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="inner">
+    <a href="#abstract">Abstract</a>
+    <a href="#intro">Problem</a>
+    <a href="#data">Data</a>
+    <a href="#methods">Methodology</a>
+    <a href="#results">Results</a>
+    <a href="#limits">Limitations</a>
+    <a href="#recs">Recommendations</a>
+    <a href="#repro">Reproducibility</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">FlyRank ML Internship — Capstone Study</div>
+    <h1>Can early search signals predict which content pages are about to decline?</h1>
+    <div class="byline">Muhammad Bilal Farooq &nbsp;·&nbsp; Search Intelligence, Refresh &amp; Content Opportunity Scoring lane &nbsp;·&nbsp;
+      <a href="https://github.com/MuhammadBilalFarooq/Assignment1" target="_blank" rel="noopener">Repository</a>
+    </div>
+    <div class="abstract" id="abstract">
+      <div class="abstract-label">Abstract</div>
+      <p>
+        This study asks whether early-month search signals and static content attributes can identify
+        which content pages are likely to be declining in search visibility, well enough to guide human
+        review priorities. Using 92,548 content items from FlyRank's internship warehouse (March 2026,
+        55 clients), a transparent rule-based baseline and a Random Forest model were built, both trained
+        on early-March signals only and validated against late-March outcomes. The Random Forest model,
+        evaluated on a client-grouped train/test split, reached precision@20 of 0.650 versus the
+        baseline's 0.250 on the same split — roughly 2.6&times; improvement — while a companion validation
+        audit showed that measuring on a naive random split instead of a grouped one would have
+        overstated this result by roughly 30 percentage points. The model's strongest signals were
+        content age and content length rather than search behavior alone, with a documented survivorship
+        bias in the age signal and a known blind spot on zero-click pages. The output is intended as a
+        decision-support prioritization tool for human content reviewers, not an automated action system
+        or a causal claim about what drives decline.
+      </p>
+    </div>
+  </div>
+</header>
+
+<section id="intro">
+  <div class="wrap">
+    <span class="num">1</span>
+    <h2>Introduction &amp; problem</h2>
+    <p>
+      A content team managing a large portfolio cannot manually review every page every month. Somewhere
+      in a set of tens of thousands of pages, some are quietly losing visibility while most stay stable —
+      and the team has a limited review budget to find the ones that matter.
+    </p>
+    <p>
+      <strong>Decision this supports:</strong> which pages a human reviewer should look at first, out of
+      a large portfolio, when deciding where to spend limited refresh or editorial effort. This is a
+      triage decision, not an automated content action system.
+    </p>
+    <p>
+      <strong>Unit of analysis:</strong> one content item (a page), scored at one point in time
+      (early March 2026). <strong>Output:</strong> a ranked risk score per item, an action tier, and a
+      reason code explaining why it was flagged. <strong>Cost of a wrong call:</strong> a false positive
+      wastes reviewer time on a page that was actually stable; a false negative means a genuinely
+      declining page goes unreviewed until a later cycle. Given that asymmetry, the ranked queue is
+      deliberately capped at a small, high-precision top tier rather than flagging broadly.
+    </p>
+  </div>
+</section>
+
+<section id="data">
+  <div class="wrap">
+    <span class="num">2</span>
+    <h2>Data</h2>
+    <p>
+      <strong>Release:</strong> the FlyRank internship warehouse, hosted on Hugging Face
+      (<code>hf://datasets/FlyRank/internship-warehouse</code>).
+    </p>
+    <p><strong>Tables used:</strong></p>
+    <ul>
+      <li><code>fact_content_daily_performance</code>, March 2026 partition only — 9.84M rows, 55
+        clients, 331K content items, all report dates confirmed in March 2026.</li>
+      <li><code>dim_content</code> — static content attributes: type, word/character count,
+        backlinks, search volume, competition, primary intent, category count, creation date.</li>
+    </ul>
+    <p>
+      <strong>Date windows:</strong> early-March (days 1–15) builds the features; late-March
+      (days 16–31) defines the outcome label. Every feature strictly precedes the outcome window.
+    </p>
+    <p><strong>Excluded, and why:</strong></p>
+    <ul>
+      <li><code>fact_content_daily_performance_sample</code> — the sealed final month (June 2026),
+        held out and never touched for label logic.</li>
+      <li><code>fact_content_query_90d</code> — its true window covers April–June 2026 only. It does
+        not reach back to March at all, so it cannot honestly inform a March-based label.</li>
+      <li><code>trend_direction</code> / <code>trend_pct</code> — excluded entirely to avoid
+        circularity with the label they would otherwise help define.</li>
+      <li>All client names, URLs, and raw queries — only hashed <code>client_hash_id</code> /
+        <code>content_hash_id</code> identifiers appear anywhere in this work.</li>
+    </ul>
+    <p>
+      <strong>Final feature table:</strong> 92,548 content items, combining early-March behavioral
+      signals with static content attributes and the March outcome label.
+    </p>
+  </div>
+</section>
+
+<section id="methods">
+  <div class="wrap">
+    <span class="num">3</span>
+    <h2>Methodology</h2>
+
+    <h3>Label</h3>
+    <p>
+      <code>is_declining</code> — impressions dropped from early-March to late-March within the same
+      content item, computed strictly from within-window observed data.
+    </p>
+
+    <h3>Features</h3>
+    <p>
+      Early-March signals (<code>imp_early</code>, <code>clk_early</code>, <code>pos_early</code>,
+      <code>ctr_early</code>) plus static content attributes (<code>content_age_days</code> as of
+      March 1, word/character count, backlinks, search volume, competition, primary intent, content
+      type, category count). Roughly 30% of items were missing word/character counts and 39% were
+      missing backlinks — these were imputed with the column median and flagged with a separate
+      "missing" indicator, rather than silently filled with zero.
+    </p>
+
+    <h3>Baseline</h3>
+    <p>
+      A single-condition, human-readable rule: pages in the worst 20% of early-March search position
+      are flagged for review. Two candidate signals — impression volume and position — were audited
+      independently first, with bucketed verdict tables, before this rule was built. Both came back
+      <strong>MIXED</strong> (weak, non-monotonic effects on their own) — an honest finding in itself
+      about how little any single early signal explains here.
+    </p>
+
+    <h3>Model</h3>
+    <p>
+      Logistic Regression first, then a Random Forest (200 trees, max depth 8, balanced class
+      weight) — the standard "readable first, then stronger" progression for a yes/no prediction on
+      an observed label.
+    </p>
+
+    <h3>Validation design</h3>
+    <p>
+      A grouped train/test split by <code>client_hash_id</code> (80/20, seed 42), with zero client
+      overlap confirmed between train and test. This was directly tested against a naive random
+      row-level split on the identical data and model: the random split scored dramatically higher
+      at every rank threshold (precision@50 of 0.88 versus 0.58 for the grouped split) —
+      demonstrating that a random split would have let the model partly "recognize" clients rather
+      than learn a signal that generalizes to a page it has never seen.
+    </p>
+
+    <h3>Leakage checks</h3>
+    <p>
+      Confirmed the feature set contains no label-derived columns (<code>imp_late</code>,
+      <code>is_declining</code>, <code>trend_direction</code>, <code>trend_pct</code>) and that
+      every feature is computed strictly before the outcome window. As a positive control,
+      <code>imp_late</code> was deliberately added as a feature: precision@20 jumped from an honest
+      0.650 to a suspicious 1.000, with that single feature dominating importance — confirming the
+      leakage-detection method itself catches an obvious violation when one is present.
+    </p>
+
+    <h3>Metric</h3>
+    <p>
+      Precision@K (K=20, 50, 100), with the base rate reported alongside every number. For a
+      "which pages first" ranking problem, precision at the top of the queue is the metric that
+      matters — not flat accuracy or recall.
+    </p>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <span class="num">4</span>
+    <h2>Results</h2>
+    <p>
+      On the same client-grouped test split, same seed, same metric, the model clearly outperforms
+      the baseline near the top of the ranked queue — where it matters most for a limited review
+      budget.
+    </p>
+  </div>
+  <div class="wide">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>K</th><th class="num">Base rate</th><th class="num">Baseline (position rule)</th><th class="num">Random Forest</th></tr></thead>
+        <tbody>
+          <tr><td>20</td><td class="num">0.370</td><td class="num">0.250</td><td class="num" style="font-weight:600;color:var(--accent)">0.650</td></tr>
+          <tr><td>50</td><td class="num">0.370</td><td class="num">0.320</td><td class="num" style="font-weight:600;color:var(--accent)">0.580</td></tr>
+          <tr><td>100</td><td class="num">0.370</td><td class="num">0.360</td><td class="num" style="font-weight:600;color:var(--accent)">0.600</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figure>
+      <img src="figures/model_vs_baseline.png" alt="Bar chart comparing baseline and Random Forest precision at K=20, 50, 100, with a base-rate reference line">
+      <figcaption><span class="take">Takeaway:</span> the model beats the baseline at every K, most sharply at the top of the queue (2.6&times; at K=20).</figcaption>
+    </figure>
+
+    <h3 class="wrap" style="padding:0;margin-top:8px;">Why the split matters</h3>
+    <figure>
+      <img src="figures/split_comparison.png" alt="Bar chart showing precision at 50 for a random split (0.88) versus a client-grouped split (0.58)">
+      <figcaption><span class="take">Takeaway:</span> a naive random split would have reported precision@50 of 0.88 — a 30-point overstatement caused by the model partly recognizing clients it had already seen in training.</figcaption>
+    </figure>
+
+    <h3 class="wrap" style="padding:0;">What the model leans on</h3>
+    <figure>
+      <img src="figures/feature_importance.png" alt="Horizontal bar chart of the top five Random Forest feature importances, led by content age and character count">
+      <figcaption><span class="take">Takeaway:</span> content age and content length outrank the original search-behavior signals (click-through rate, position).</figcaption>
+    </figure>
+    <div class="wrap" style="padding:0;">
+      <p>
+        Investigating <code>content_age_days</code> further revealed an inverted-U relationship with
+        decline rate: risk peaks around 82–130 days old, then falls for older content. The most
+        plausible explanation is survivorship bias — very old pages still present in this snapshot
+        already proved durable, since fragile old pages were likely pruned or merged before the data
+        was captured. This was checked against a simpler explanation (a bulk-import batch artifact)
+        and ruled out: page counts were smoothly distributed across age bins, not spiked at one point.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="limits">
+  <div class="wrap">
+    <span class="num">5</span>
+    <h2>Limitations &amp; honest framing</h2>
+    <div class="callout">
+      <span class="label">Decision-support, not causal</span>
+      <p>Every claim in this paper should be read as "these pages look worth reviewing first, because…" —
+      never as "this page will decline" or "refreshing this page will fix it." This is an observational
+      study; no causal or forward-looking guarantee is being made.</p>
+    </div>
+    <ul>
+      <li><strong>One split, one time period.</strong> All results come from a single grouped
+        train/test split (8 held-out test clients) on March 2026 data — a measured, out-of-sample
+        result, not a guarantee it holds for every client, every month, or after the portfolio
+        composition shifts.</li>
+      <li><strong>Survivorship bias in the age signal.</strong> The age-risk pattern likely reflects
+        which old pages happened to survive into this snapshot, not a universal aging effect — a
+        directional finding, not a settled one.</li>
+      <li><strong>A known blind spot.</strong> The model's most confident wrong predictions were all
+        zero-early-click, moderate-impression pages flagged as declining but actually stable. Pages
+        flagged mainly for zero clicks deserve extra scrutiny.</li>
+      <li><strong>Precision degrades past the top of the queue.</strong> By rank ~100, precision is
+        close to the base rate — the ranking is strongly trustworthy only near the top.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="recs">
+  <div class="wrap">
+    <span class="num">6</span>
+    <h2>Ranked recommendations</h2>
+    <p>Output from scoring the full 92,548-item dataset with the final model:</p>
+  </div>
+  <div class="wide">
+    <div class="tiers">
+      <div class="tier"><span class="n">20</span><div class="name">Review first</div><p class="desc">Top-ranked; matches the measured precision@20 of 0.650.</p></div>
+      <div class="tier"><span class="n">80</span><div class="name">Review soon</div><p class="desc">Ranks 21–100; precision degrades toward the base rate here.</p></div>
+      <div class="tier"><span class="n">92,448</span><div class="name">Monitor only</div><p class="desc">Below any measured precision band — score alone should not drive action.</p></div>
+    </div>
+  </div>
+  <div class="wrap">
+    <p>
+      Each item carries a reason code (<code>AGE_RISK_WINDOW</code>, <code>ZERO_CLICKS</code>,
+      <code>WEAK_POSITION</code>, <code>THIN_CONTENT</code>, or <code>LOW_SIGNAL</code>) so a
+      reviewer sees <em>why</em> a page was flagged, not just that it was.
+    </p>
+    <div class="callout">
+      <span class="label">Human review required</span>
+      <p>This queue narrows attention — it does not execute decisions. Items flagged
+      <code>ZERO_CLICKS</code> need particular scrutiny given the documented blind spot above. No
+      automated content edits, deletions, or client-facing claims should be generated from this queue
+      directly.</p>
+    </div>
+    <p>
+      <strong>Monitoring:</strong> realized precision@20 should be tracked monthly against the 0.650
+      baseline. A sustained drop, a shift in the base decline rate, or a major change in portfolio
+      composition are all retrain triggers.
+    </p>
+  </div>
+</section>
+
+<section id="repro">
+  <div class="wrap">
+    <span class="num">7</span>
+    <h2>Reproducibility</h2>
+    <p>Every step in this study is a notebook in the linked repository, runnable from a fresh clone with the fixed seed noted below.</p>
+    <ul class="repro-list">
+      <li><a href="https://github.com/MuhammadBilalFarooq/Assignment1/blob/main/work/notebooks/w03_data_contract.ipynb" target="_blank" rel="noopener">w03_data_contract.ipynb</a> — leak-checked feature table</li>
+      <li><a href="https://github.com/MuhammadBilalFarooq/Assignment1/blob/main/work/notebooks/w04_baseline_score.ipynb" target="_blank" rel="noopener">w04_baseline_score.ipynb</a> — signal audit + baseline rule</li>
+      <li><a href="https://github.com/MuhammadBilalFarooq/Assignment1/blob/main/work/notebooks/w05_model.ipynb" target="_blank" rel="noopener">w05_model.ipynb</a> — model training + comparison</li>
+      <li><a href="https://github.com/MuhammadBilalFarooq/Assignment1/blob/main/work/notebooks/w06_validation_audit.ipynb" target="_blank" rel="noopener">w06_validation_audit.ipynb</a> — split audit + leakage proof</li>
+      <li><a href="https://github.com/MuhammadBilalFarooq/Assignment1/blob/main/work/notebooks/w07_action_playbook.ipynb" target="_blank" rel="noopener">w07_action_playbook.ipynb</a> — ranked action queue</li>
+      <li><a href="https://github.com/MuhammadBilalFarooq/Assignment1/blob/main/work/notebooks/capstone.ipynb" target="_blank" rel="noopener">capstone.ipynb</a> — this paper's source notebook</li>
+      <li><a href="https://github.com/MuhammadBilalFarooq/Assignment1/blob/main/work/outputs/metrics_summary.json" target="_blank" rel="noopener">metrics_summary.json</a> — every number on this page, committed as a receipt</li>
+    </ul>
+    <p>Random seed: <code>42</code>, fixed throughout. Full repository: <a href="https://github.com/MuhammadBilalFarooq/Assignment1" target="_blank" rel="noopener">github.com/MuhammadBilalFarooq/Assignment1</a>.</p>
+  </div>
+</section>
+
+<footer id="ack">
+  <div class="wrap">
+    <span class="num">8</span>
+    <h2>Acknowledgments &amp; data credit</h2>
+    <div class="credit">
+      Built on the FlyRank ML Internship dataset — <a href="https://flyrank.ai" target="_blank" rel="noopener">flyrank.ai</a>.
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
